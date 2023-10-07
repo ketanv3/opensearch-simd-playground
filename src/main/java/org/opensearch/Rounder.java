@@ -71,12 +71,11 @@ public interface Rounder {
             Vector<Long> keyVector = LongVector.broadcast(LONG_SPECIES, key);
             int idx = 0;
             int max = LONG_SPECIES.loopBound(values.length);
-            for (; idx < max; idx += LONG_SPECIES.length()) {
+            for (; idx < max; idx += LONG_LANES) {
                 Vector<Long> valuesVector = LongVector.fromArray(LONG_SPECIES, values, idx);
                 VectorMask<Long> mask = valuesVector.compare(VectorOperators.GT, keyVector);
-                if (mask.anyTrue()) {
-                    return values[idx + mask.firstTrue() - 1];
-                }
+                int off = mask.firstTrue();
+                if (off < LONG_LANES) return values[idx + mask.firstTrue() - 1];
             }
             return values[idx - 1];
         }
@@ -302,6 +301,8 @@ public interface Rounder {
                 for (int k = 0; k < LONG_LANES; k++) {
                     i = build(src, i, dst, j + ((j + k) << LONG_SHIFT));
                     dst[j + k] = (i < src.length) ? src[i++] : Long.MAX_VALUE;
+                    // Uncomment to create a complete tree instead.
+                    // dst[j + k] = (j + k < src.length + 1) ? src[i++] : Long.MAX_VALUE;
                 }
                 i = build(src, i, dst, j + ((j + LONG_LANES) << LONG_SHIFT));
             }

@@ -34,9 +34,17 @@ tasks.test {
     jvmArgs("--add-modules", "jdk.incubator.vector")
 }
 
+java {
+    targetCompatibility = JavaVersion.VERSION_21
+    sourceCompatibility = JavaVersion.VERSION_21
+}
+
 jmh {
     version = "1.37"
     jvmArgsAppend.addAll(listOf("--add-modules", "jdk.incubator.vector"))
+
+    // Uncomment to enable profiling with perf.
+    // profilers.add("perfnorm")
 }
 
 spotless {
