@@ -29,6 +29,10 @@ tasks.compileJmhJava {
     options.compilerArgs.addAll(listOf("--add-modules", "jdk.incubator.vector"))
 }
 
+tasks.jmhRunBytecodeGenerator {
+    jvmArgs.addAll("--add-modules", "jdk.incubator.vector")
+}
+
 tasks.test {
     useJUnitPlatform()
     jvmArgs("--add-modules", "jdk.incubator.vector")

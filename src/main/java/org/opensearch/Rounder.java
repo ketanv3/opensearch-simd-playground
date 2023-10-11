@@ -291,9 +291,18 @@ public interface Rounder {
         private final long[] values;
 
         public BtreeSearchRounder(long[] values) {
+            // Regular B-tree.
             int len = ((values.length + LONG_LANES - 1) / LONG_LANES) * LONG_LANES;
             this.values = new long[len + 1];
             build(values, 0, this.values, 1);
+
+            // Uncomment to build a "perfect" B-tree.
+            // All levels are completely filled and the last level may be padded with sentinel
+            // values.
+            // int len = lenPerfect(values.length);
+            // this.values = new long[len + 1];
+            // Arrays.fill(this.values, Long.MAX_VALUE);
+            // buildPerfect(values, 0, this.values, 1);
         }
 
         private static int build(long[] src, int i, long[] dst, int j) {
@@ -309,14 +318,47 @@ public interface Rounder {
             return i;
         }
 
+        private static int lenPerfect(int n) {
+            int m = LONG_LANES;
+            int l = 0;
+            while (n > 0) {
+                n -= m;
+                l += m;
+                m += (m << LONG_SHIFT);
+            }
+            return l;
+        }
+
+        private static int buildPerfect(long[] src, int i, long[] dst, int j) {
+            if (j < dst.length) {
+                for (int k = 0; k < LONG_LANES; k++) {
+                    i = buildPerfect(src, i, dst, j + ((j + k) << LONG_SHIFT));
+                    // Must be filled like a complete tree.
+                    dst[j + k] = (j + k < src.length + 1) ? src[i++] : Long.MAX_VALUE;
+                }
+                i = buildPerfect(src, i, dst, j + ((j + LONG_LANES) << LONG_SHIFT));
+            }
+            return i;
+        }
+
         @Override
         public long round(long key) {
             Vector<Long> k = LongVector.broadcast(LONG_SPECIES, key);
             int i = 1, res = 0;
+
+            // Branch misprediction can be very costly here.
+            // Use the "perfect" tree variant if serious about performance.
             while (i < values.length) {
                 Vector<Long> v = LongVector.fromArray(LONG_SPECIES, values, i);
                 int j = i + v.compare(VectorOperators.GT, k).firstTrue();
                 res = (j > i) ? j : res;
+
+                // Uncomment to use the branchless equivalent (slower but predictable).
+                // int o = v.compare(VectorOperators.GT, k).firstTrue();
+                // int j = i + o;
+                // int m = (res ^ j) & (~((o - 1) >> 31));
+                // res ^= m;
+
                 i += j << LONG_SHIFT;
             }
             return values[res - 1];
